@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Workout</title> 
+		<link href='http://fonts.googleapis.com/css?family=Open+Sans:400' rel='stylesheet' type='text/css'>
+		<meta name="apple-mobile-web-app-capable" content="yes" />  
+		<meta content='user-scalable=no, initial-scale=1.0,maximum-scale=1.0, width=320.1' name='viewport' />
+		<link rel="apple-touch-icon" sizes="114x114" href="barbell.jpg" />
+		<link rel="apple-touch-startup-image" href="barbell.jpg" />
+		<style>
+			html, body {
+				background: white;
+				margin: 0;
+				padding: 1px;
+				background: #EEE;
+				line-height: 1em;
+			}
+			.card {
+				margin: 10px;
+				-webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+				padding: 15px 25px 15px 15px;
+				background: #F8F8F8;
+			}
+			h2 {
+				font-family: 'Open Sans', sans-serif;
+				font-weight: normal;
+				margin: 0 0 15px 0;
+				font-size: 18px;
+				text-transform: uppercase;
+				color: #AAA;
+				text-align: left;
+			}
+			.stat {
+				display: inline-block;
+				text-align: right;
+				margin: 0 0 10px 0;
+			}
+			.stats, .lifts {
+				text-align: right;
+			}
+			.stats .stat {
+				width: 49%;
+			}
+			.label {
+				margin: 0 0 8px 0;
+			}
+			.label, .unit {
+				font-family: 'Open Sans', sans-serif;
+				text-transform: uppercase;
+				font-size: 10px;
+			}
+			.unit {
+				opacity: 0.5;
+				margin: 0 0 5px 0;
+			}
+			.data {
+				display: inline-block;
+				margin-left: 10px;
+			}
+			.number {
+				font-family: 'Open Sans', sans-serif;
+				font-size: 30px;
+				margin-bottom: 6px;
+			}
+			.stat input {
+				font-family: 'Open Sans', sans-serif;
+				font-size: 30px;
+				margin-bottom: 5px;
+				width: 100%;
+				text-align: right;
+				padding: 0;
+				margin: -12px -2px -16px 0;
+				border: 0;
+				background: 0;
+			}
+			.card hr {
+				padding: 0;
+				height: 0;
+				overflow: hidden;
+				border: 0;
+				border-top: 1px solid #EEE;
+				border-bottom: 1px solid #FFF;
+				margin: 0 0 20px 0;
+			}
+			.lifts .stat {
+				width: 32%;
+			}
+		</style>
+		<script>
+			var countdowns = {
+				'since': new Date(2013, 0, 21),
+				'tough mudder': new Date(2013, 5, 22),
+				'emerald cup': new Date(2013, 4, 5),
+			};
+			var stats = {
+				'weight': 'lbs',
+				'body fat': '%',
+				'deadlift': 'lbs',
+				'bench': 'lbs',
+				'press': 'lbs',
+				'squat': 'lbs',
+				'curl': 'lbs',
+				'chin up': 'lbs',
+				'chin up 1': '#',
+				'chin up 2': '#',
+				'chin up 3': '#',
+				'pull up': 'lbs',
+				'pull up 1': '#',
+				'pull up 2': '#',
+				'pull up 3': '#',
+				'distance': 'miles',
+				'speed': 'miles/h',
+				'br': null,
+			};
+			var sections = {
+				'countdown': ['emerald cup', 'tough mudder'],
+				'stats': ['weight', 'body fat', 'since'],
+				'lifts': ['squat', 'deadlift', 'bench', 'press', 'curl'],
+				'bodyweight': [
+					'chin up', 'br',
+					'chin up 1', 'chin up 2', 'chin up 3',
+					'pull up', 'br',
+					'pull up 1', 'pull up 2', 'pull up 3'
+				],
+				'cardio': ['speed', 'distance'],
+			};
+			var lifts = ['bodyweight', 'lifts'];
+			var page = ['countdown', 'stats', 'lifts', 'bodyweight', 'cardio'];
+
+			function LocalStorageObservable(name, initial) {
+				var flag = ko.observable(true);
+				var computed = ko.computed({
+					read: function() {
+						flag();
+						var value = localStorage[name];
+						if (value)
+							return parseFloat(value);
+						else
+							return '0';
+					},
+					write: function(value) {
+						localStorage[name] = value;
+						flag(!flag());
+					}
+				});
+
+				if (initial)
+					computed(initial);
+
+				return computed;
+			}
+
+			function Stat(name) {
+				this.name = name;
+
+				this.data = [{
+					unit: stats[name],
+					value: LocalStorageObservable(name)
+				}];
+
+				this.editing = ko.observable(false);
+				var self = this;
+				this.edit = function() {
+					self.editing(true);
+				};
+				this.data[0].value.subscribe(function() {
+					// Whenever, we update, unfocus. Mobile webkit doesn't have
+					// auto blur events.
+					self.editing(false);
+				});
+			}
+
+			function Countdown(name) {
+				this.name = name;
+				var days = Math.round(Math.abs(countdowns[name] - new Date()) / 1000 / 3600 / 24);
+				this.data = [
+					{
+						unit: 'months',
+						value: Math.floor(days / 30)
+					},
+					{
+						unit: 'days',
+						value: days % 30
+					}
+				];
+
+				if (this.data[0].value === 0)
+					this.data.shift();
+
+				this.editing = ko.observable(false);
+				this.edit = function () {};
+				this.onKeypress = function() {};
+			}
+
+			function Section(name) {
+				this.name = name;
+				this.stats = sections[name].map(function(statName) {
+					if (stats[statName] !== undefined)
+						return new Stat(statName);
+					else if (countdowns[statName] !== undefined)
+						return new Countdown(statName);
+					else
+						console.log(statName, 'does not exist');
+				});
+
+				this.isLifts = lifts.indexOf(name) !== -1;
+			}
+
+			function Page() {
+				this.sections = page.map(function(sectionName) {
+					return new Section(sectionName);
+				});
+			}
+		</script>
+	</head>
+	<body>
+		<script type="text/html" id="statTemplate">
+			<!-- ko if: name === 'br' -->
+				<div class="break"></div>
+			<!-- /ko -->
+			<!-- ko ifnot: name === 'br' -->
+				<div class="stat">
+					<div class="label" data-bind="text: name"></div>
+					<!-- ko foreach: data -->
+					<div class="data">
+						<div class="number" data-bind="text: value, visible: !$parent.editing(), click: $parent.edit"></div>
+						<input type="number" data-bind="value: value, visible: $parent.editing, hasfocus: $parent.editing" />
+						<div class="unit" data-bind="text: unit">months</div>
+					</div>
+					<!-- /ko -->
+				</div>
+			<!-- /ko -->
+		</script>
+		<script type="text/html" id="sectionTemplate">
+			<div data-bind="css: { lifts: isLifts, stats: !isLifts }">
+				<h2 data-bind="text: name"></h2>
+				<!-- ko foreach: stats -->
+					<!-- ko template: 'statTemplate' -->
+					<!-- /ko -->
+				<!-- /ko -->
+			</div>
+		</script>
+		<script type="text/html" id="pageTemplate">
+			<div class="card" data-bind="foreach: sections">
+				<!-- ko template: 'sectionTemplate' -->
+				<!-- /ko -->
+				<!-- ko if: ($index() !== ($parent.sections.length - 1)) -->
+				<hr />
+				<!-- /ko -->
+			</div>
+		</script>
+		<div data-bind="template: 'pageTemplate'"></div>
+		<script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.8.0.js"></script>
+		<script src="http://ajax.aspnetcdn.com/ajax/knockout/knockout-2.2.1.js"></script>
+		<script>
+			ko.applyBindings(new Page());
+		</script>
+	</body>
+</html>
